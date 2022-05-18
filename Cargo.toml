@@ -1,0 +1,15 @@
+[package]
+name = "pcap_parser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pcap-file = "1.1.1"
+pcap-parser = "0.13.3"
+byteorder = "1.4.3"
+thiserror = "1.0.31"
+errors = "0.0.0"
+hex = "0.4.3"
+colored = "2.0.0"
