@@ -38,15 +38,38 @@ pub mod assistant {
     }
 
     impl PacketProcessor for ProcessorExample {
-        ///
+        /// Example of 'PacketProcessor' implementation, change the packet with given data.
         /// 
+        /// # Panic
         /// 
+        /// If start or end of range is larger then packet length or given dataset length
+        /// is smaller than range length or start of range is bigger then end.
+        /// 
+        /// # Examples
+        /// 
+        /// ```
+        /// use std::fs::File;
+        /// 
+        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset);  //add to end of packet 
+        /// let mut processor = ProcessorExample::new(0, 0, dataset);  //add to start of packet 
+        /// let mut processor = ProcessorExample::new(2, 8, dataset);  //add to range 
+        /// let mut processor = ProcessorExample::new(2, 4, dataset);  //add and displace packet data to accommodate dataset
+        /// let mut processor = ProcessorExample::new(10, 0, dataset); //add dataset from start point and trim packet after end of dataset
+        /// 
+        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
+        /// env.process_and_compare_files("netinfo.pcap", &mut processor);
+        /// ```
         /// 
         fn process_packet(&mut self, packet: &mut Vec<u8>) -> bool {
             if self.start > packet.len() || self.end > packet.len(){
                 panic!("Range is out of packet bounds");
             }  
 
+             // If there are no enough data for range size
+            if self.start < self.end && (self.end - self.start) > self.new_data.len()  { 
+                panic!("Range is bigger than data set! Uundefined scenario!");
+            } 
             // Add dataset to selected range
             if self.start < self.end && (self.end - self.start) == self.new_data.len() {
                 packet.splice(self.start..self.end, self.new_data.clone());
@@ -54,7 +77,7 @@ pub mod assistant {
                 return true;
             }  
 
-            // Add dataset from self.start point till self.end of dataset and trim self.end of packet 
+            // Add dataset from start point till end of dataset and trim of packet end
             if self.start > 0 && self.end == 0 {
                 packet.splice(self.start..(self.new_data.len() + self.start), self.new_data.clone());
                 for _ in (self.new_data.len() + self.start)..packet.len() {
@@ -64,11 +87,6 @@ pub mod assistant {
                 return true;
             }  
             
-            // If there are no enough data for range size
-            if self.start < self.end && (self.end - self.start) > self.new_data.len()  { 
-                panic!("Range is bigger than data set! Uundefined scenario!");
-            } 
-                
             // If range is smaller than dataset size displace packet data to accommodate dataset
             if self.start < self.end && (self.end - self.start) < self.new_data.len() {
                 let mut temp_vec: Vec<u8> = Vec::new();
@@ -83,7 +101,7 @@ pub mod assistant {
                 return true;
             } 
 
-            // If range is not defined add dataset to self.start of packet
+            // If range is not defined add dataset to start of packet
             if self.start == 0 && self.end == 0 {
                 for i in 0..self.new_data.len() {
                     packet.insert(i,*self.new_data.get(i).unwrap());
@@ -92,7 +110,7 @@ pub mod assistant {
                 return true;
             } 
 
-            // If range is equal to sataset size add dataset to end of packet
+            // If range is equal to dataset size add dataset to end of packet
             if self.start == self.new_data.len() && self.end == self.new_data.len() {
                 for i in 0..self.new_data.len() {
                     packet.push(*self.new_data.get(i).unwrap());
@@ -100,7 +118,7 @@ pub mod assistant {
                 
                 return true;
             } 
-            println!("sgvdfbhj,k");
+            
             false
         }
     
@@ -206,7 +224,7 @@ pub mod assistant {
                         if data_lhs.as_bytes()[j] != data_rhs.as_bytes()[j] {
                             result.push_str( &format!("{}", String::from_utf8_lossy(&[data_rhs.as_bytes()[j]]).red()));
                         } else {
-                            result.push_str( &data_rhs.as_bytes()[j].to_string());
+                            result.push_str( &String::from_utf8_lossy(&[data_rhs.as_bytes()[j]]));
                         }
                     }
                     for j in data_lhs.len()..data_rhs.len() {
@@ -219,17 +237,17 @@ pub mod assistant {
                         if data_lhs.as_bytes()[j] != data_rhs.as_bytes()[j] {
                             result.push_str(&format!("{}", String::from_utf8_lossy(&[data_rhs.as_bytes()[j]]).red()));
                         } else {
-                            result.push_str( &String::from_utf8_lossy(&[data_rhs.as_bytes()[j]]));
+                            result.push_str(&String::from_utf8_lossy(&[data_rhs.as_bytes()[j]]));
                         }
                     }
                 }
             }
-        
+         
             result
         }
 
         /// Save 'PcapReader' to  given file.
-        pub fn save_reader_to_new_pcap(file_to: &File, pcap_reader: PcapReader<File>) -> Result<(),()>  {2
+        pub fn save_reader_to_new_pcap(file_to: &File, pcap_reader: PcapReader<File>) -> Result<(),()>  {
             let mut pcap_writer = PcapWriter::new(file_to).map_err(|_|())?;
             
             for pcap in pcap_reader {
@@ -256,18 +274,48 @@ pub mod assistant {
 mod tests {
     use crate::assistant::*;
     use pcap_file::pcap::{PcapReader, Packet,PcapWriter};
-    use std::time::Duration;
-    use std::io::prelude::*;
-    use colored::Colorize;
-    use std::borrow::Cow;
-    use thiserror::Error;
     use std::fs::File;
     use std::vec;
     use std::fs;
 
     #[test]
-    fn test() {}
-       
+    fn peocessor_example_test() {
+        let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset.clone());
+        let mut processor2 = ProcessorExample::new(0, 0, dataset.clone());
+        let mut processor3 = ProcessorExample::new(5, 8, dataset.clone());
+        let mut processor4 = ProcessorExample::new(2, 8, dataset);
+        let env = PcapTester::new("netinfo.pcap", processor2.clone());
+
+        env.process_and_compare_files("netinfo.pcap", &mut processor);
+        env.process_and_compare_files("netinfo.pcap", &mut processor2);
+        env.process_and_compare_files("netinfo.pcap", &mut processor3);
+        env.process_and_compare_files("netinfo.pcap", &mut processor4);
+    }
+
+    #[test]
+    fn process_and_save_test() {
+        let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset.clone());
+        let env = PcapTester::new("netinfo.pcap", processor.clone());
+
+        env.process_and_save("new_file_test.pcap", &mut processor);
+        let new_file = File::open("new_file_test.pcap").expect("Can`t open file!");
+    }
+
+    #[test]
+    fn get_new_file_from_reader() {
+        let file_correct = File::open("netinfo2.pcap").expect("Error opening file\n");
+        let new_file = File::create("new_file_from_reader.pcap").expect("Error opening file\n");
+        let pcap_reader1 = PcapReader::new(file_correct).unwrap();
+    
+        PcapTester::save_reader_to_new_pcap(&new_file, pcap_reader1);
+        let new_file = File::open("new_file_from_reader.pcap").expect("Error opening file\n");
+    
+        fs::remove_file("new_file_from_reader.pcap");
+    }
+
+
 }
 
 fn main() {}
