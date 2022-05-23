@@ -1,26 +1,28 @@
 
 pub mod assistant {
 
-    use pcap_file::pcap::{PcapReader, Packet,PcapWriter};
+    use crate::pcap::*;
     use std::cmp::Ordering;
     use colored::Colorize;
     use std::borrow::Cow;
     use std::fs::File;
 
-    ///
+    /// Trait for packet processor realization.
+    /// 
+    /// Implement this function to process packet in your scenario.
     pub trait PacketProcessor {
         /// Processes the packet (`Vec<u8>`) and returns false if packet must be dropped and true otherwise.
         fn process_packet(&mut self, _: &mut Vec<u8>) -> bool;
     }
     
-    ///
+    /// PcapTester with original_file and processor.
     #[derive(Default)]
     pub struct PcapTester {
         original_file: String,
         processor: ProcessorExample
     }
 
-    ///
+   /// ProcessorExample with range (start..end) and dataset.
     #[derive(Clone,Debug,Default)]
     pub struct ProcessorExample {
         start: usize, 
@@ -49,13 +51,15 @@ pub mod assistant {
         /// 
         /// ```
         /// use std::fs::File;
+        /// use pcap_assistant::assistant::PcapTester;
+        /// use pcap_assistant::assistant::ProcessorExample;
         /// 
         /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
         /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset);  //add to end of packet 
-        /// let mut processor = ProcessorExample::new(0, 0, dataset);  //add to start of packet 
-        /// let mut processor = ProcessorExample::new(2, 8, dataset);  //add to range 
-        /// let mut processor = ProcessorExample::new(2, 4, dataset);  //add and displace packet data to accommodate dataset
-        /// let mut processor = ProcessorExample::new(10, 0, dataset); //add dataset from start point and trim packet after end of dataset
+        /// //let mut processor = ProcessorExample::new(0, 0, dataset);  //add to start of packet 
+        /// //let mut processor = ProcessorExample::new(2, 8, dataset);  //add to range 
+        /// //let mut processor = ProcessorExample::new(2, 4, dataset);  //add and displace packet data to accommodate dataset
+        /// //let mut processor = ProcessorExample::new(10, 0, dataset); //add dataset from start point and trim packet after end of dataset
         /// 
         /// let env = PcapTester::new("netinfo.pcap", processor.clone());
         /// env.process_and_compare_files("netinfo.pcap", &mut processor);
@@ -142,6 +146,17 @@ pub mod assistant {
         }
         
         /// Process original file and save result to new file.
+        /// 
+        /// # Example
+        /// 
+        /// ```
+        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset); 
+        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
+        /// 
+        /// env.process_and_save("new_file.pcap", &mut processor);
+        /// 
+        /// ```
         pub fn process_and_save(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
             let file_from = File::open(&self.original_file).map_err(|_|())?;
             let file_to = File::create(file_to).map_err(|_|())?;
@@ -168,6 +183,17 @@ pub mod assistant {
         }
 
         /// Process given file and compare it with original file.
+        /// 
+        ///  # Examples
+        /// 
+        /// ```
+        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset);  //add to end of packet 
+        /// 
+        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
+        /// env.process_and_compare_files("netinfo.pcap", &mut processor);
+        /// ```
+        /// 
         pub fn process_and_compare_files<Processor: PacketProcessor> (&self, file: &str, processor: &mut Processor) -> Result<bool,()> {
             let file_lhs = File::open(&self.original_file).map_err(|_|())?;
             let file_rhs = File::open(file).map_err(|_|())?;
@@ -258,7 +284,7 @@ pub mod assistant {
         }
         
         /// Save 'PacketHeader' and packets to given file.
-        pub fn save_data_to_new_pcap (file_to: &File, pcap_header: pcap_file::pcap::PcapHeader, packets: Vec<Packet>) -> Result<(),()> {
+        pub fn save_data_to_new_pcap (file_to: &File, pcap_header: PcapHeader, packets: Vec<Packet>) -> Result<(),()> {
             let mut pcap_writer = PcapWriter::with_header(pcap_header, file_to).map_err(|_|())?;
     
             for packet in packets {
@@ -272,8 +298,8 @@ pub mod assistant {
     
 #[cfg(test)]
 mod tests {
-    use crate::assistant::*;
-    use pcap_file::pcap::{PcapReader, Packet,PcapWriter};
+    use crate::pcap_assistant::assistant::*;
+    use crate::pcap::*;
     use std::fs::File;
     use std::vec;
     use std::fs;
@@ -317,15 +343,4 @@ mod tests {
 
 
 }
-
-fn main() {}
-
-
-
-
-
-
-
-
-
 
