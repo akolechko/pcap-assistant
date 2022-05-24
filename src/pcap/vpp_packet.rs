@@ -29,8 +29,6 @@ pub trait SomePacket<'a, P: 'a> {
     fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<P>;
     fn to_owned(& self) -> P;
     fn from_slice<B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], P)>;
-    fn convert(&self) -> P;
-
 }
 
 /// Describes a Vpp pcap packet header.
@@ -226,17 +224,20 @@ impl<'a> SomePacket<'a, VppPacket<'a>> for VppPacket<'a> {
         Ok((slice, packet))
     }
 
-    fn convert(&self) -> VppPacket<'a> {
+    
+}
 
-        let header = VppPacketHeader {
+impl<'a> VppPacket<'a> {
+    fn convert(&self) -> Packet<'a> {
+
+        let header = PacketHeader {
             ts_sec: self.header.ts_sec,
             ts_nsec: self.header.ts_sec,
             incl_len: self.header.incl_len,
-            orig_len: self.header.orig_len,
-            interface_index: self.header.interface_index
+            orig_len: self.header.orig_len
         };
 
-        VppPacket {
+        Packet {
             header,
             data: self.data.clone()
         }

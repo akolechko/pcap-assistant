@@ -3,7 +3,7 @@ use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt};
 use crate::{
     myerrors::*,
     TsResolution,
-    pcap::{SomePacketHeader, SomePacket}
+    pcap::*
 };
  
 use std::{
@@ -206,21 +206,24 @@ impl<'a> SomePacket<'a, Packet<'a>> for Packet<'a> {
             data: Cow::Owned(self.data.as_ref().to_owned())
         }
     }
+}
+    
 
-    fn convert(& self) -> Packet<'a> {
+impl <'a> Packet<'a> {
+    fn convert(& self) -> VppPacket<'a> {
         
-        let header = PacketHeader {
+        let header = VppPacketHeader {
             ts_sec: self.header.ts_sec,
             ts_nsec: self.header.ts_sec,
             incl_len: self.header.incl_len,
-            orig_len: self.header.orig_len
+            orig_len: self.header.orig_len,
+            interface_index: 0
         };
 
-        Packet {
+        VppPacket {
             header,
             data: self.data.clone()
         }
     }
 }
-
 
