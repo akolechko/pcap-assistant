@@ -3,7 +3,8 @@ use byteorder::{BigEndian, LittleEndian};
 use crate::{
     Endianness,
     myerrors::*,
-    pcap::Packet,
+    pcap::vpp_packet::SomePacket,
+    //pcap::Packet,
     pcap::PcapHeader
 };
 
@@ -63,13 +64,13 @@ impl PcapParser {
     }
 
     /// Returns the next packet and the remainder.
-    pub fn next_packet<'a>(&self, slice: &'a[u8]) -> ResultParsing<(&'a [u8], Packet<'a>)> {
+    pub fn next_packet<'a, P: 'a + SomePacket<'a, P>>(&self, slice: &'a[u8]) -> ResultParsing<(&'a [u8], P)> {
 
         let ts_resolution = self.header.ts_resolution();
 
         match self.header.endianness() {
-            Endianness::Big => Packet::from_slice::<BigEndian>(slice, ts_resolution),
-            Endianness::Little => Packet::from_slice::<LittleEndian>(slice, ts_resolution)
+            Endianness::Big => P::from_slice::<BigEndian>(slice, ts_resolution),
+            Endianness::Little => P::from_slice::<LittleEndian>(slice, ts_resolution)
         }
     }
 }
