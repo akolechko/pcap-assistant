@@ -39,6 +39,3 @@ impl From< std::string::FromUtf8Error> for PcapError {
     }
 }
 
-fn main() {
-
-}

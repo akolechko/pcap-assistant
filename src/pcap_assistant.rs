@@ -288,7 +288,7 @@ pub mod assistant {
             let mut pcap_writer = PcapWriter::with_header(pcap_header, file_to).map_err(|_|())?;
     
             for packet in packets {
-                pcap_writer.write_packet(&packet);
+                pcap_writer.write_packet(&packet).map_err(|_|())?;
             }
             Ok(())
         }
@@ -326,7 +326,7 @@ mod tests {
         let env = PcapTester::new("netinfo.pcap", processor.clone());
 
         env.process_and_save("new_file_test.pcap", &mut processor);
-        let new_file = File::open("new_file_test.pcap").expect("Can`t open file!");
+        File::open("new_file_test.pcap").expect("Can`t open file!");
     }
 
     #[test]
@@ -336,7 +336,7 @@ mod tests {
         let pcap_reader1 = PcapReader::new(file_correct).unwrap();
     
         PcapTester::save_reader_to_new_pcap(&new_file, pcap_reader1);
-        let new_file = File::open("new_file_from_reader.pcap").expect("Error opening file\n");
+        File::open("new_file_from_reader.pcap").expect("Error opening file\n");
     
         fs::remove_file("new_file_from_reader.pcap");
     }
