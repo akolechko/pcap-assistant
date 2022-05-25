@@ -22,13 +22,22 @@ pub trait SomePacketHeader<H> {
     fn timestamp(&self) -> Duration;
     
 }
-pub trait SomePacket<'a, P: 'a> {
+pub trait SomePacket<'a> {
 
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> P ;
-    fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> P;
-    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<P>;
-    fn to_owned(& self) -> P;
-    fn from_slice<B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], P)>;
+    type Item;
+
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item ;
+    fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> Self::Item;
+    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Self::Item>;
+    fn to_owned(& self) -> Self::Item;
+    fn from_slice< B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)>;
+}
+
+pub trait SomeLifetimedPacket<'a> {
+    
+    type Item;
+
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item ;
 }
 
 /// Describes a Vpp pcap packet header.
@@ -144,10 +153,12 @@ pub struct VppPacket<'a> {
     pub data: Cow<'a, [u8]>
 }
 
-impl<'a> SomePacket<'a, VppPacket<'a>> for VppPacket<'a> {
+impl<'a> SomePacket<'a> for VppPacket<'a> {
+
+    type Item = VppPacket<'a>;
 
     /// Create a new borrowed `VppPacket` with the given parameters.
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> VppPacket<'a> {
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item {
 
         let header = VppPacketHeader {
             ts_sec,
@@ -161,10 +172,11 @@ impl<'a> SomePacket<'a, VppPacket<'a>> for VppPacket<'a> {
             header,
             data: Cow::Borrowed(data)
         }
+        
     }
 
     /// Create a new owned `VppPacket` with the given parameters.
-    fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> VppPacket<'static> {
+    fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> Self::Item {
 
         let header = VppPacketHeader {
             ts_sec,
@@ -181,7 +193,7 @@ impl<'a> SomePacket<'a, VppPacket<'a>> for VppPacket<'a> {
     }
 
     /// Create a new owned `VppPacket` from a reader.
-    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<VppPacket<'static>> {
+    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Self::Item> {
 
         let header = VppPacketHeader::from_reader::<R, B>(reader, ts_resolution)?;
 
@@ -205,7 +217,7 @@ impl<'a> SomePacket<'a, VppPacket<'a>> for VppPacket<'a> {
     }
 
      /// Create a new borrowed `VppPacket` from a slice.
-    fn from_slice<B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], VppPacket<'a>)> {
+    fn from_slice<B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)> {
 
         let (slice, header) = VppPacketHeader::from_slice::<B>(slice, ts_resolution)?;
         let len = header.incl_len as usize;
@@ -243,3 +255,4 @@ impl<'a> VppPacket<'a> {
         }
     }
 }
+

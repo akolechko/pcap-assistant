@@ -137,7 +137,7 @@ pub mod assistant {
         /// Open and print out encoded packets from file.
         pub fn pcap_print(file: &str) {
             let file = File::open(file).expect("Can`t open file!");
-            let pcap_reader = PcapReader::new(file).unwrap();
+            let pcap_reader = PcapReader::<File, Packet<'static>>::new(file).unwrap();
         
             for pcap in pcap_reader {
                 let pcap = pcap.unwrap();                                                                   
@@ -160,7 +160,7 @@ pub mod assistant {
         pub fn process_and_save(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
             let file_from = File::open(&self.original_file).map_err(|_|())?;
             let file_to = File::create(file_to).map_err(|_|())?;
-            let mut reader = PcapReader::new(&file_from).map_err(|_|())?;
+            let mut reader = PcapReader::<File, Packet<'static>>::new(file_from).map_err(|_|())?;
             let mut writer = PcapWriter::new(&file_to).map_err(|_|())?;
         
             while let Some(packet) = reader.next() {
@@ -197,8 +197,8 @@ pub mod assistant {
         pub fn process_and_compare_files<Processor: PacketProcessor> (&self, file: &str, processor: &mut Processor) -> Result<bool,()> {
             let file_lhs = File::open(&self.original_file).map_err(|_|())?;
             let file_rhs = File::open(file).map_err(|_|())?;
-            let mut reader_lhs = PcapReader::new(&file_lhs).map_err(|_|())?;
-            let mut reader_rhs = PcapReader::new(&file_rhs).map_err(|_|())?;
+            let mut reader_lhs = PcapReader::<File, VppPacket<'static>>::new(file_lhs).map_err(|_|())?;
+            let mut reader_rhs = PcapReader::<File, VppPacket<'static>>::new(file_rhs).map_err(|_|())?;
             
             let mut index: usize = 0;
             let mut packet_lhs_opt = reader_lhs.next();
@@ -273,7 +273,7 @@ pub mod assistant {
         }
 
         /// Save 'PcapReader' to  given file.
-        pub fn save_reader_to_new_pcap(file_to: &File, pcap_reader: PcapReader<File>) -> Result<(),()>  {
+        pub fn save_reader_to_new_pcap(file_to: &File, pcap_reader: PcapReader<File, Packet<'static>>) -> Result<(),()>  {
             let mut pcap_writer = PcapWriter::new(file_to).map_err(|_|())?;
             
             for pcap in pcap_reader {

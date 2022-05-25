@@ -128,10 +128,12 @@ pub struct Packet<'a> {
     pub data: Cow<'a, [u8]>
 }
 
-impl<'a> SomePacket<'a, Packet<'a>> for Packet<'a> {
+impl<'a> SomePacket<'a> for Packet<'a> {
+    
+    type Item = Self;
 
     /// Create a new borrowed `Packet` with the given parameters.
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Packet<'a> {
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item {
 
         let header = PacketHeader {
             ts_sec,
@@ -147,7 +149,7 @@ impl<'a> SomePacket<'a, Packet<'a>> for Packet<'a> {
     }
 
     /// Create a new owned `Packet` with the given parameters.
-    fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> Packet<'static> {
+    fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> Self::Item {
 
         let header = PacketHeader {
             ts_sec,
@@ -163,7 +165,7 @@ impl<'a> SomePacket<'a, Packet<'a>> for Packet<'a> {
     }
 
     /// Create a new owned `Packet` from a reader.
-    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Packet<'static>> {
+    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Self::Item> {
 
         let header = PacketHeader::from_reader::<R, B>(reader, ts_resolution)?;
 
@@ -180,7 +182,7 @@ impl<'a> SomePacket<'a, Packet<'a>> for Packet<'a> {
     }
 
     /// Create a new borrowed `Packet` from a slice.
-    fn from_slice<B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Packet<'a>)> {
+    fn from_slice<B: ByteOrder>(slice: &'a [u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)> {
 
         let (slice, header) = PacketHeader::from_slice::<B>(slice, ts_resolution)?;
         let len = header.incl_len as usize;

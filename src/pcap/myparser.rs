@@ -64,7 +64,7 @@ impl PcapParser {
     }
 
     /// Returns the next packet and the remainder.
-    pub fn next_packet<'a, P: 'a + SomePacket<'a, P>>(&self, slice: &'a[u8]) -> ResultParsing<(&'a [u8], P)> {
+    pub fn next_packet<'a, P: SomePacket<'a>>(&self, slice: &'a[u8]) -> ResultParsing<(&'a [u8], P::Item)> {
 
         let ts_resolution = self.header.ts_resolution();
 
