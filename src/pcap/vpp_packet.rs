@@ -22,6 +22,7 @@ pub trait SomePacketHeader<H> {
     fn timestamp(&self) -> Duration;
     
 }
+
 pub trait SomePacket<'a> {
 
     type Item;
@@ -33,12 +34,12 @@ pub trait SomePacket<'a> {
     fn from_slice< B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)>;
 }
 
-pub trait SomeLifetimedPacket<'a> {
+/*pub trait SomeLifetimedPacket<'a> {
     
     type Item;
 
     fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item ;
-}
+}*/
 
 /// Describes a Vpp pcap packet header.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
@@ -56,7 +57,7 @@ pub struct VppPacketHeader {
     /// Original length of the packet on the wire
     pub orig_len: u32,
 
-    /// Just need to exist
+    /// Index of Interface
     pub interface_index: u32
 }
 
@@ -125,7 +126,7 @@ impl SomePacketHeader<VppPacketHeader> for VppPacketHeader {
         Ok(())
     }
 
-    /// Create a new `PacketHeader` from a slice.
+    /// Create a new `VppPacketHeader` from a slice.
     fn from_slice<B: ByteOrder>(mut slice: &[u8], ts_resolution: TsResolution) -> ResultParsing<(&[u8], VppPacketHeader)> {
 
         //Header len
@@ -208,7 +209,7 @@ impl<'a> SomePacket<'a> for VppPacket<'a> {
         )
     }
 
-    /// Convert a borrowed `Packet` to Vpp owned one.
+    /// Convert a borrowed `VppPacket` to Vpp owned one.
     fn to_owned(& self) -> VppPacket<'static> {
         VppPacket {
             header: self.header,
@@ -240,7 +241,8 @@ impl<'a> SomePacket<'a> for VppPacket<'a> {
 }
 
 impl<'a> VppPacket<'a> {
-    fn convert(&self) -> Packet<'a> {
+    /// Convert 'VppPacket' to 'Packet'.
+    pub fn convert(&self) -> Packet<'a> {
 
         let header = PacketHeader {
             ts_sec: self.header.ts_sec,

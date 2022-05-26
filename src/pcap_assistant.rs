@@ -18,8 +18,7 @@ pub mod assistant {
     /// PcapTester with original_file and processor.
     #[derive(Default)]
     pub struct PcapTester {
-        original_file: String,
-        processor: ProcessorExample
+        original_file: String
     }
 
    /// ProcessorExample with range (start..end) and dataset.
@@ -29,7 +28,6 @@ pub mod assistant {
         end: usize, 
         new_data: Vec<u8>
     }
-
 
     impl ProcessorExample {
         /// Creates a new 'ProcessorExample' with the given parameters.
@@ -130,103 +128,32 @@ pub mod assistant {
 
     impl PcapTester {
         /// Creates a new 'PcapTester' with the given parameters.
-        pub fn new (original_file: &str, processor: ProcessorExample) -> PcapTester {
-           PcapTester { original_file: original_file.to_string(), processor}
+        pub fn new (original_file: &str) -> PcapTester {
+           PcapTester { original_file: original_file.to_string()}
         }
 
         /// Open and print out encoded packets from file.
-        pub fn pcap_print(file: &str) {
+        pub fn print_reg_pcap(&self, file: &str) {
             let file = File::open(file).expect("Can`t open file!");
-            let pcap_reader = PcapReader::<File, Packet<'static>>::new(file).unwrap();
+            let pcap_reader = PcapReader::<File, Packet<'static>>::new(file).expect("Can`t create reader");;
+    
+            for pcap in pcap_reader {
+                let pcap = pcap.unwrap();                                                                   
+                println!("{:?} \n {} \n", pcap.header, hex::encode(pcap.data.as_ref()));
+            }
+        }
+
+        /// Open and print out encoded Vpp packets from file.
+        pub fn print_vpp_pcap(&self, file: &str) {
+            let file = File::open(file).expect("Can`t open file!");
+            let pcap_reader = PcapReader::<File, VppPacket<'static>>::new(file).unwrap();
         
             for pcap in pcap_reader {
                 let pcap = pcap.unwrap();                                                                   
                 println!("{:?} \n {} \n", pcap.header, hex::encode(pcap.data.as_ref()));
             }
         }
-        
-        /// Process original file and save result to new file.
-        /// 
-        /// # Example
-        /// 
-        /// ```
-        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
-        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset); 
-        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
-        /// 
-        /// env.process_and_save("new_file.pcap", &mut processor);
-        /// 
-        /// ```
-        pub fn process_and_save(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
-            let file_from = File::open(&self.original_file).map_err(|_|())?;
-            let file_to = File::create(file_to).map_err(|_|())?;
-            let mut reader = PcapReader::<File, Packet<'static>>::new(file_from).map_err(|_|())?;
-            let mut writer = PcapWriter::new(&file_to).map_err(|_|())?;
-        
-            while let Some(packet) = reader.next() {
-                let packet  = packet.map_err(|_|())?;
-                let mut data: Vec<u8> = packet.data.iter().copied().collect();
-                let mut header = packet.header;
 
-                let is_dropped = !processor.process_packet(&mut data);
-                if !is_dropped {
-                    
-                    header.orig_len = data.len() as u32;
-                    header.incl_len = data.len() as u32;
-                    
-                    let packet = Packet { header , data: Cow::Owned(data) };
-                    writer.write_packet(&packet).map_err(|_|())?;  
-
-                }                
-            }
-            Ok(true)
-        }
-
-        /// Process given file and compare it with original file.
-        /// 
-        ///  # Examples
-        /// 
-        /// ```
-        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
-        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset);  //add to end of packet 
-        /// 
-        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
-        /// env.process_and_compare_files("netinfo.pcap", &mut processor);
-        /// ```
-        /// 
-        pub fn process_and_compare_files<Processor: PacketProcessor> (&self, file: &str, processor: &mut Processor) -> Result<bool,()> {
-            let file_lhs = File::open(&self.original_file).map_err(|_|())?;
-            let file_rhs = File::open(file).map_err(|_|())?;
-            let mut reader_lhs = PcapReader::<File, VppPacket<'static>>::new(file_lhs).map_err(|_|())?;
-            let mut reader_rhs = PcapReader::<File, VppPacket<'static>>::new(file_rhs).map_err(|_|())?;
-            
-            let mut index: usize = 0;
-            let mut packet_lhs_opt = reader_lhs.next();
-
-            while let Some(packet_rhs) = reader_rhs.next() { 
-                let mut data_rhs: Vec<u8> = packet_rhs.unwrap().data.iter().copied().collect();
-                let is_dropped = !processor.process_packet(&mut data_rhs);
-                if !is_dropped {
-                    if packet_lhs_opt.is_none() {
-                        return Ok(false);
-                    }
-
-                    let data_lhs:Vec<u8> = packet_lhs_opt.unwrap().unwrap().data.iter().copied().collect();
-
-                    if data_rhs == data_lhs {
-                        println!("Packet {}: {}", index + 1, "OK".green().bold());
-                    } else {
-                        println!("Packet {}: {} \n {}", index + 1, "FAIL".red().bold(), Self::compare_pakets_data(data_lhs, data_rhs));
-                    }
-
-                    index += 1;
-                    packet_lhs_opt = reader_lhs.next();
-                }                
-            }
-
-            Ok(reader_rhs.next().is_none()) 
-        }
-        
         /// Compare data from 2 vectors and return hex string with result.
         fn compare_pakets_data(data_lhs: Vec<u8>, data_rhs: Vec<u8>) -> String { 
             let data_lhs = hex::encode(data_lhs);
@@ -271,9 +198,182 @@ pub mod assistant {
          
             result
         }
+        /// Process original file and save result to new file.
+        /// 
+        /// # Example
+        /// 
+        /// ```
+        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset); 
+        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
+        /// 
+        /// env.process_and_save("new_file.pcap", &mut processor);
+        /// 
+        /// ```
+        pub fn process_and_save(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
+            let file_from = File::open(&self.original_file).map_err(|_|())?;
+            let file_to = File::create(file_to).map_err(|_|())?;
+            let mut reader = PcapReader::<File, Packet<'static>>::new(file_from).map_err(|_|())?;
+            let mut writer = PcapWriter::new(&file_to).map_err(|_|())?;
+        
+            while let Some(packet) = reader.next() {
+                let packet  = packet.map_err(|_|())?;
+                let mut data: Vec<u8> = packet.data.iter().copied().collect();
+                let mut header = packet.header;
 
-        /// Save 'PcapReader' to  given file.
-        pub fn save_reader_to_new_pcap(file_to: &File, pcap_reader: PcapReader<File, Packet<'static>>) -> Result<(),()>  {
+                let is_dropped = !processor.process_packet(&mut data);
+                if !is_dropped {
+                    
+                    header.orig_len = data.len() as u32;
+                    header.incl_len = data.len() as u32;
+                    
+                    let packet = Packet { header , data: Cow::Owned(data) };
+                    writer.write_packet(&packet).map_err(|_|())?;  
+
+                }                
+            }
+            Ok(true)
+        }
+
+        /// Process original file and save result to new file.
+        pub fn process_and_save_vpp(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
+            let file_from = File::open(&self.original_file).map_err(|_|())?;
+            let file_to = File::create(file_to).map_err(|_|())?;
+            let mut reader = PcapReader::<File, Packet<'static>>::new(file_from).map_err(|_|())?;
+            let mut writer = PcapWriter::new(&file_to).map_err(|_|())?;
+        
+            while let Some(packet) = reader.next() {
+                let packet  = packet.map_err(|_|())?;
+                let mut data: Vec<u8> = packet.data.iter().copied().collect();
+                let mut header = packet.header;
+
+                let is_dropped = !processor.process_packet(&mut data);
+                if !is_dropped {
+                    
+                    header.orig_len = data.len() as u32;
+                    header.incl_len = data.len() as u32;
+                    
+                    let packet = Packet { header , data: Cow::Owned(data) };
+                    writer.write_packet(&packet).map_err(|_|())?;  
+
+                }                
+            }
+            Ok(true)
+        }
+
+        /// Process given file and compare it with original file.
+        /// 
+        ///  # Examples
+        /// 
+        /// ```
+        /// let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        /// let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset);  //add to end of packet 
+        /// 
+        /// let env = PcapTester::new("netinfo.pcap", processor.clone());
+        /// env.process_and_compare_files("netinfo.pcap", &mut processor);
+        /// ```
+        /// 
+        pub fn process_and_compare_files<Processor: PacketProcessor> (&self, file: &str, processor: &mut Processor) -> Result<bool,()> {
+            let file_lhs = File::open(&self.original_file).map_err(|_|())?;
+            let file_rhs = File::open(file).map_err(|_|())?;
+            let mut reader_lhs = PcapReader::<File, Packet<'static>>::new(file_lhs).map_err(|_|())?;
+            let mut reader_rhs = PcapReader::<File, Packet<'static>>::new(file_rhs).map_err(|_|())?;
+            
+            let mut index: usize = 0;
+            let mut packet_lhs_opt = reader_lhs.next();
+
+            while let Some(packet_rhs) = reader_rhs.next() { 
+                let mut data_rhs: Vec<u8> = packet_rhs.unwrap().data.iter().copied().collect();
+                let is_dropped = !processor.process_packet(&mut data_rhs);
+                if !is_dropped {
+                    if packet_lhs_opt.is_none() {
+                        return Ok(false);
+                    }
+
+                    let data_lhs:Vec<u8> = packet_lhs_opt.unwrap().unwrap().data.iter().copied().collect();
+
+                    if data_rhs == data_lhs {
+                        println!("Packet {}: {}", index + 1, "OK".green().bold());
+                    } else {
+                        println!("Packet {}: {} \n {}", index + 1, "FAIL".red().bold(), Self::compare_pakets_data(data_lhs, data_rhs));
+                    }
+
+                    index += 1;
+                    packet_lhs_opt = reader_lhs.next();
+                }                
+            }
+
+            Ok(reader_rhs.next().is_none()) 
+        }
+        
+        /// Compare .pcap files (original and provided).
+        /// 
+        /// # Example
+        /// ```
+        /// let env = PcapTester::new("file.pcap");
+        /// env.compare_files("file2.pcap");
+        /// ```
+        pub fn compare_files(&self, file: &str) -> Result<(), ()> {
+            let file_lhs = File::open(&self.original_file).map_err(|_|())?;
+            let file_rhs = File::open(file).map_err(|_|())?;
+            let mut reader_lhs = PcapReader::<File, Packet<'static>>::new(file_lhs).map_err(|_|())?;
+            let mut reader_rhs = PcapReader::<File, Packet<'static>>::new(file_rhs).map_err(|_|())?;
+            let mut index: usize = 0;
+
+            while let Some(packet_rhs) = reader_rhs.next() { 
+                let packet_lhs_opt = reader_lhs.next();
+
+                if packet_lhs_opt.is_none() {
+                    return Ok(());
+                }
+                let data_rhs: Vec<u8> = packet_rhs.unwrap().data.iter().copied().collect();
+                let data_lhs: Vec<u8> = packet_lhs_opt.unwrap().unwrap().data.iter().copied().collect();
+
+                if data_rhs == data_lhs {
+                    println!("Packet {}: {}", index + 1, "OK".green().bold());
+                } else {
+                    println!("Packet {}: {} \n {}", index + 1, "FAIL".red().bold(), Self::compare_pakets_data(data_lhs, data_rhs));
+                }
+
+                index += 1;
+            }
+
+            Ok(())
+        }
+        
+        /// Convert 'VppPackets' to 'Packets' and save to new file.
+        pub fn convert_and_save_reg (&self, file_from: &str, file_to: &str) -> Result<(), ()> {
+            let file_from = File::open(file_from).map_err(|_|())?;
+            let file_to = File::create(file_to).map_err(|_|())?;
+            let reader = PcapReader::<File, VppPacket<'static>>::new(file_from).map_err(|_|())?;
+            let mut writer = PcapWriter::new(file_to).map_err(|_|())?;
+
+            for data in reader {
+                let packet = VppPacket::convert(&data.unwrap());
+                writer.write_packet(&packet).map_err(|_|())?;
+            }
+
+            Ok(())
+        }
+
+        /// Convert 'Packets' to 'VppPackets' and save to new file.
+        pub fn convert_and_save_vpp (&self, file_from: &str, file_to: &str) -> Result<(), ()> {
+            let file_from = File::open(file_from).map_err(|_|())?;
+            let file_to = File::create(file_to).map_err(|_|())?;
+            let reader = PcapReader::<File, Packet<'static>>::new(file_from).map_err(|_|())?;
+            let mut writer = PcapWriter::new(file_to).map_err(|_|())?;
+
+            for data in reader {
+                let vpp_packet = Packet::convert(&data.unwrap());
+                writer.write_packet(&vpp_packet).map_err(|_|())?;
+            }
+
+            Ok(())
+        }
+
+        /// Save 'PcapReader' with Packets to given file.
+        pub fn save_reader_to_new_pcap(file_to: &str, pcap_reader: PcapReader<File, Packet<'static>>) -> Result<(),()>  {
+            let file_to = File::create(file_to).map_err(|_|())?;
             let mut pcap_writer = PcapWriter::new(file_to).map_err(|_|())?;
             
             for pcap in pcap_reader {
@@ -282,9 +382,33 @@ pub mod assistant {
             }
             Ok(())
         }
-        
-        /// Save 'PacketHeader' and packets to given file.
-        pub fn save_data_to_new_pcap (file_to: &File, pcap_header: PcapHeader, packets: Vec<Packet>) -> Result<(),()> {
+
+        /// Save 'PcapReader' with VppPackets to given file.
+        pub fn save_vppreader_to_new_pcap(file_to: &str, pcap_reader: PcapReader<File, VppPacket<'static>>) -> Result<(),()>  {
+            let file_to = File::create(file_to).map_err(|_|())?;
+            let mut pcap_writer = PcapWriter::new(file_to).map_err(|_|())?;
+            
+            for pcap in pcap_reader {
+                let pcap = pcap.unwrap();
+                pcap_writer.write_packet(&pcap).unwrap();
+            }
+            Ok(())
+        }
+
+        /// Save 'PacketHeader' and Packets to given file.
+        pub fn save_packets_to_new_pcap (file_to: &str, pcap_header: PcapHeader, packets: Vec<Packet>) -> Result<(),()> {
+            let file_to = File::create(file_to).map_err(|_|())?;
+            let mut pcap_writer = PcapWriter::with_header(pcap_header, file_to).map_err(|_|())?;
+    
+            for packet in packets {
+                pcap_writer.write_packet(&packet).map_err(|_|())?;
+            }
+            Ok(())
+        }
+
+        /// Save 'PacketHeader' and VppPackets to given file.
+        pub fn save_vpp_packets_to_new_pcap (file_to: &str, pcap_header: PcapHeader, packets: Vec<VppPacket>) -> Result<(),()> {
+            let file_to = File::create(file_to).map_err(|_|())?;
             let mut pcap_writer = PcapWriter::with_header(pcap_header, file_to).map_err(|_|())?;
     
             for packet in packets {
@@ -296,6 +420,7 @@ pub mod assistant {
     }
 }
     
+
 #[cfg(test)]
 mod tests {
     use crate::pcap_assistant::assistant::*;
@@ -305,13 +430,19 @@ mod tests {
     use std::fs;
 
     #[test]
+    fn compare_test() {
+        let env = PcapTester::new("netinfo2.pcap");
+        env.compare_files("new_file_from_reader.pcap");
+    }
+
+    #[test]
     fn peocessor_example_test() {
         let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
         let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset.clone());
         let mut processor2 = ProcessorExample::new(0, 0, dataset.clone());
         let mut processor3 = ProcessorExample::new(5, 8, dataset.clone());
         let mut processor4 = ProcessorExample::new(2, 8, dataset);
-        let env = PcapTester::new("netinfo.pcap", processor2.clone());
+        let env = PcapTester::new("netinfo.pcap");
 
         env.process_and_compare_files("netinfo.pcap", &mut processor);
         env.process_and_compare_files("netinfo.pcap", &mut processor2);
@@ -323,7 +454,7 @@ mod tests {
     fn process_and_save_test() {
         let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
         let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset.clone());
-        let env = PcapTester::new("netinfo.pcap", processor.clone());
+        let env = PcapTester::new("netinfo.pcap");
 
         env.process_and_save("new_file_test.pcap", &mut processor);
         File::open("new_file_test.pcap").expect("Can`t open file!");
@@ -332,10 +463,9 @@ mod tests {
     #[test]
     fn get_new_file_from_reader() {
         let file_correct = File::open("netinfo2.pcap").expect("Error opening file\n");
-        let new_file = File::create("new_file_from_reader.pcap").expect("Error opening file\n");
         let pcap_reader1 = PcapReader::new(file_correct).unwrap();
     
-        PcapTester::save_reader_to_new_pcap(&new_file, pcap_reader1);
+        PcapTester::save_reader_to_new_pcap("new_file_from_reader.pcap", pcap_reader1);
         File::open("new_file_from_reader.pcap").expect("Error opening file\n");
     
         fs::remove_file("new_file_from_reader.pcap");
