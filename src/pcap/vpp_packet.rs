@@ -34,13 +34,6 @@ pub trait SomePacket<'a> {
     fn from_slice< B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)>;
 }
 
-/*pub trait SomeLifetimedPacket<'a> {
-    
-    type Item;
-
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item ;
-}*/
-
 /// Describes a Vpp pcap packet header.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct VppPacketHeader {

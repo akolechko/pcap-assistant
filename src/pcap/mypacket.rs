@@ -212,7 +212,7 @@ impl<'a> SomePacket<'a> for Packet<'a> {
     
 
 impl <'a> Packet<'a> {
-    pub fn convert(& self) -> VppPacket<'a> {
+    pub fn convert(&self) -> VppPacket<'a> {
         
         let header = VppPacketHeader {
             ts_sec: self.header.ts_sec,
