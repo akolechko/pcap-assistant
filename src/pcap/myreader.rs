@@ -4,7 +4,6 @@ use byteorder::{BigEndian, LittleEndian};
 use crate::{
     Endianness,
     myerrors::*,
-    pcap::mypacket::Packet,
     pcap::myheader::PcapHeader,
     pcap::vpp_packet::*,
     peek_reader::PeekReader

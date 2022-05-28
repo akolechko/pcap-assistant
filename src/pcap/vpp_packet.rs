@@ -15,7 +15,7 @@ use std::{
 
 pub trait SomePacketHeader<H> {
     
-    fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> H;
+    fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> Self;
     fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<H>;
     fn write_to< W: Write, B: ByteOrder>(&self, writer: &mut W, ts_resolution: TsResolution) -> ResultParsing<()>;
     fn from_slice<B: ByteOrder>(slice: &[u8], ts_resolution: TsResolution) -> ResultParsing<(&[u8], H)>;
