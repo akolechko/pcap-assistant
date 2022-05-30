@@ -137,9 +137,9 @@ pub mod assistant {
             let file = File::open(file).expect("Can`t open file!");
             let pcap_reader = PcapReader::<File, Packet<'static>>::new(file).expect("Can`t create reader");
     
-            for pcap in pcap_reader {
-                let pcap = pcap.unwrap();                                                                   
-                println!("{:?} \n {} \n", pcap.header, hex::encode(pcap.data.as_ref()));
+            for packet in pcap_reader {
+                let packet = packet.unwrap();                                                                   
+                println!("{:?} \n {} \n", packet.header, hex::encode(packet.data.as_ref()));
             }
         }
 
@@ -148,9 +148,9 @@ pub mod assistant {
             let file = File::open(file).expect("Can`t open file!");
             let pcap_reader = PcapReader::<File, VppPacket<'static>>::new(file).unwrap();
         
-            for pcap in pcap_reader {
-                let pcap = pcap.unwrap();                                                                   
-                println!("{:?} \n {} \n", pcap.header, hex::encode(pcap.data.as_ref()));
+            for packet in pcap_reader {
+                let packet = packet.unwrap();                                                                   
+                println!("{:?} \n {:?} \n", packet.header, hex::encode(packet.data.as_ref()));
             }
         }
 
@@ -427,7 +427,7 @@ pub mod assistant {
         }
 
         /// Save 'PacketHeader' and VppPackets to given file.
-        pub fn save_vpp_packets_to_new_pcap (file_to: &str, pcap_header: PcapHeader, packets: Vec<VppPacket>) -> Result<(),()> {
+        pub fn save_vpppackets_to_new_pcap (file_to: &str, pcap_header: PcapHeader, packets: Vec<VppPacket>) -> Result<(),()> {
             let file_to = File::create(file_to).map_err(|_|())?;
             let mut pcap_writer = PcapWriter::with_header(pcap_header, file_to).map_err(|_|())?;
     
@@ -453,13 +453,15 @@ mod tests {
     fn compare_files_test() {
         let env = PcapTester::new("netinfo2.pcap");
         assert!(env.compare_files("netinfo2.pcap").unwrap());
+        assert!(!env.compare_files("netinfo.pcap").unwrap());
     }
 
     #[test]
     fn convert_test() {
-        let env = PcapTester::new("netinfo2.pcap");
-        env.convert_and_save_vpp("netinfo2.pcap", "new.pcap").unwrap();
-        PcapTester::print_vpp_pcap("new.pcap");
+        let env = PcapTester::new("netinfo.pcap");
+        env.convert_and_save_vpp("netinfo.pcap", "new.pcap").unwrap();
+        //PcapTester::print_reg_pcap("new.pcap");
+        //PcapTester::print_vpp_pcap("netinfo2.pcap");
     }
 
     #[test]
@@ -508,18 +510,36 @@ mod tests {
 
     #[test]
     fn save_reader_to_new_pcap_test() {
+        let env = PcapTester::new("netinfo2.pcap");
         let file_correct = File::open("netinfo2.pcap").expect("Error opening file\n");
-        let pcap_reader1 = PcapReader::new(file_correct).unwrap();
+        let pcap_reader = PcapReader::new(file_correct).unwrap();
     
-        PcapTester::save_reader_to_new_pcap("new_file_from_reader.pcap", pcap_reader1).unwrap();
-        File::open("new_file_from_reader.pcap").expect("Error opening file\n");
+        PcapTester::save_reader_to_new_pcap("new_file_from_reader.pcap", pcap_reader).unwrap();
+        File::open("new_file_from_reader.pcap").unwrap();
+
+        assert!(env.compare_files("new_file_from_reader.pcap").unwrap());
     
         fs::remove_file("new_file_from_reader.pcap").unwrap();
     }
 
     #[test]
     fn save_packets_to_new_pcap_test() {
+        let env = PcapTester::new("netinfo2.pcap");
+        let file_correct = File::open("netinfo2.pcap").expect("Error opening file\n");
+        let pcap_reader = PcapReader::<File, Packet<'static>>::new(file_correct).unwrap();
+        let header = pcap_reader.header;
+        let mut packets: Vec<Packet> = Vec::new();
 
+        for packet in pcap_reader {
+            packets.push(packet.unwrap());
+        }
+
+        PcapTester::save_packets_to_new_pcap("new_file_from_data.pcap", header, packets).unwrap();
+        File::open("new_file_from_data.pcap").unwrap();
+
+        assert!(env.compare_files("new_file_from_data.pcap").unwrap());
+    
+        fs::remove_file("new_file_from_data.pcap").unwrap();
     }
 
 }

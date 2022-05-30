@@ -216,7 +216,7 @@ impl <'a> Packet<'a> {
         
         let header = VppPacketHeader {
             ts_sec: self.header.ts_sec,
-            ts_nsec: self.header.ts_sec,
+            ts_nsec: self.header.ts_nsec,
             incl_len: self.header.incl_len,
             orig_len: self.header.orig_len,
             interface_index: 0
