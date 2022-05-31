@@ -78,6 +78,7 @@ impl SomePacketHeader<VppPacketHeader> for VppPacketHeader {
         }
         let incl_len = reader.read_u32::<B>()?;
         let orig_len = reader.read_u32::<B>()?;
+        let interface_index = reader.read_u32::<B>()?;
 
         if incl_len > 0xFFFF {
             return Err(PcapError::InvalidField("PacketHeader incl_len > 0xFFFF"));
@@ -99,7 +100,7 @@ impl SomePacketHeader<VppPacketHeader> for VppPacketHeader {
                 ts_nsec,
                 incl_len,
                 orig_len,
-                interface_index: 0
+                interface_index
             }
         )
     }

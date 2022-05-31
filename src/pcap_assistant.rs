@@ -150,10 +150,10 @@ pub mod assistant {
         
             for packet in pcap_reader {
                 let packet = packet.unwrap();                                                                   
-                println!("{:?} \n {:?} \n", packet.header, hex::encode(packet.data.as_ref()));
+                println!("{:?} \n {} \n", packet.header, hex::encode(packet.data.as_ref()));
             }
         }
-
+            
         /// Compare data from 2 vectors and return tuple with hex string with visual difference 
         /// and bool (true if data is same and false if is differend) .
         pub fn compare_pakets_data(data_lhs: &Vec<u8>, data_rhs: &Vec<u8>) -> (String, bool) { 
@@ -244,8 +244,8 @@ pub mod assistant {
             Ok(true)
         }
 
-                    /// Process original file and save result to new file.
-                    pub fn process_and_save_vpp(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
+        /// Process original file and save result to new file.
+        pub fn process_and_save_vpp(&self, file_to: &str, processor: &mut ProcessorExample) -> Result<bool,()> { 
             let file_from = File::open(&self.original_file).map_err(|_|())?;
             let file_to = File::create(file_to).map_err(|_|())?;
             let reader = PcapReader::<File, VppPacket<'static>>::new(file_from).map_err(|_|())?;
@@ -358,9 +358,51 @@ pub mod assistant {
 
             Ok(false)
         }
+
+        /// Compare .pcap files (original and provided).
+        /// 
+        /// Returns true if files are same and false if different.
+        /// # Example
+        /// ```
+        /// let env = PcapTester::new("file.pcap");
+        /// env.compare_files("file2.pcap");
+        /// ```
+        pub fn compare_reg_and_vpp_files(&self, file: &str) -> Result<bool, ()> {
+            let file_lhs = File::open(&self.original_file).map_err(|_|())?;
+            let file_rhs = File::open(file).map_err(|_|())?;
+            let mut reader_lhs = PcapReader::<File, Packet<'static>>::new(file_lhs).map_err(|_|())?;
+            let reader_rhs = PcapReader::<File, VppPacket<'static>>::new(file_rhs).map_err(|_|())?;
+            let mut is_same = true;
+
+            for (index, packet_rhs) in reader_rhs.enumerate() { 
+                let packet_lhs_opt = reader_lhs.next();
+
+                if packet_lhs_opt.is_none() && is_same {
+                    return Ok(true);
+                } else if packet_lhs_opt.is_none() && !is_same {
+                    return Ok(false);
+                }
+                let data_rhs: Vec<u8> = packet_rhs.unwrap().data.iter().copied().collect();
+                let data_lhs: Vec<u8> = packet_lhs_opt.unwrap().unwrap().data.iter().copied().collect();
+
+                if data_rhs == data_lhs {
+                    println!("Packet {}: {}", index, "OK".green().bold());
+                } else {
+                    is_same = false;
+                    println!("Packet {}: {} \n {}", index, "FAIL".red().bold(), Self::compare_pakets_data(&data_lhs, &data_rhs).0);
+                }
+
+            }
+
+            if is_same {
+                return Ok(true);
+            }
+
+            Ok(false)
+        }
         
-                    /// Convert 'VppPackets' to 'Packets' and save to new file.
-                    pub fn convert_and_save_reg (&self, file_from: &str, file_to: &str) -> Result<(), ()> {
+                        /// Convert 'VppPackets' to 'Packets' and save to new file.
+                        pub fn convert_and_save_reg (&self, file_from: &str, file_to: &str) -> Result<(), ()> {
             let file_from = File::open(file_from).map_err(|_|())?;
             let file_to = File::create(file_to).map_err(|_|())?;
             let reader = PcapReader::<File, VppPacket<'static>>::new(file_from).map_err(|_|())?;
@@ -374,8 +416,8 @@ pub mod assistant {
             Ok(())
         }
 
-                    /// Convert 'Packets' to 'VppPackets' and save to new file.
-                    pub fn convert_and_save_vpp (&self, file_from: &str, file_to: &str) -> Result<(), ()> {
+        /// Convert 'Packets' to 'VppPackets' and save to new file.
+        pub fn convert_and_save_vpp (&self, file_from: &str, file_to: &str) -> Result<(), ()> {
             let file_from = File::open(file_from).map_err(|_|())?;
             let file_to = File::create(file_to).map_err(|_|())?;
             let reader = PcapReader::<File, Packet<'static>>::new(file_from).map_err(|_|())?;
@@ -448,7 +490,7 @@ mod tests {
     use std::fs::File;
     use std::vec;
     use std::fs;
-
+ 
     #[test]
     fn compare_files_test() {
         let env = PcapTester::new("netinfo2.pcap");
@@ -457,12 +499,13 @@ mod tests {
     }
 
     #[test]
-    fn convert_test() {
+    fn convert_to_vpp_test() {
         let env = PcapTester::new("netinfo.pcap");
         env.convert_and_save_vpp("netinfo.pcap", "new.pcap").unwrap();
-        //PcapTester::print_reg_pcap("new.pcap");
-        //PcapTester::print_vpp_pcap("netinfo2.pcap");
-    }
+        PcapTester::print_vpp_pcap("new.pcap");
+        
+        assert!(env.compare_reg_and_vpp_files("new.pcap").unwrap());
+    }    
 
     #[test]
     fn compare_pakets_data_test() {
@@ -506,6 +549,18 @@ mod tests {
         File::open("new_file_test.pcap").expect("Can`t open file!");
 
         assert!(!env.compare_files("new_file_test.pcap").unwrap());
+    }
+
+    #[test]
+    fn process_and_save_vpp_test() {
+        let dataset: Vec<u8> = vec![1, 2, 3, 4, 5, 6];
+        let mut processor = ProcessorExample::new(dataset.len(), dataset.len(), dataset);
+        let env = PcapTester::new("new.pcap");
+
+        assert!(env.process_and_save_vpp("new_vppfile_test.pcap", &mut processor).unwrap());
+        File::open("new_vppfile_test.pcap").expect("Can`t open file!");
+
+        //assert!(!env.compare_files("new_file_test.pcap").unwrap());
     }
 
     #[test]
