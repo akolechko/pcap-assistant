@@ -47,7 +47,7 @@ pub struct PcapWriter<W: Write> {
 
 pub trait PacketWriter<P>{
     fn write(&mut self, ts_sec: u32, ts_nsec: u32, data: &[u8], orig_len: u32) -> ResultParsing<()>;
-    fn write_packet(&mut self, packet: &P) -> ResultParsing<()>;
+    fn write_packet(&mut self, packet: P) -> ResultParsing<()>;
    
 }
 
@@ -74,7 +74,7 @@ impl<'a, W: Write> PacketWriter<Packet<'a>> for PcapWriter<W> {
             data: Cow::Borrowed(data)
         };
 
-        Self::write_packet(self, &packet)
+        Self::write_packet(self, packet)
     }
     
     /// Writes a `Packet`.
@@ -95,7 +95,7 @@ impl<'a, W: Write> PacketWriter<Packet<'a>> for PcapWriter<W> {
     ///
     /// pcap_writer.write_packet(&packet).unwrap();
     /// ```
-    fn write_packet(&mut self, packet: &Packet) -> ResultParsing<()> {
+    fn write_packet(&mut self, packet: Packet) -> ResultParsing<()> {
 
         let ts_resolution = self.header.ts_resolution();
 
@@ -134,10 +134,10 @@ impl<'a, W: Write> PacketWriter<VppPacket<'a>> for PcapWriter<W> {
             data: Cow::Borrowed(data)
         };
 
-        Self::write_packet(self, &packet)
+        Self::write_packet(self, packet)
     }
     
-    fn write_packet(&mut self, packet: &VppPacket) -> ResultParsing<()> {
+    fn write_packet(&mut self, packet: VppPacket) -> ResultParsing<()> {
 
         let ts_resolution = self.header.ts_resolution();
 
