@@ -32,6 +32,14 @@ pub struct PacketHeader {
 
 impl SomePacketHeader for  PacketHeader {
 
+    fn set_incl_len(&mut self, incl_len: u32) {
+        self.incl_len = incl_len;
+    }
+
+    fn set_orig_len(&mut self, orig_len: u32) {
+        self.orig_len = orig_len;
+    }
+
     /// Create a new `PacketHeader` with the given parameters.
     fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> PacketHeader {
 
@@ -137,12 +145,12 @@ impl<'a> SomePacket<'a> for Packet<'a> {
         &self.data
     }
 
-    fn get_header(&self) -> &Self::Header {
-        &self.header
+    fn get_header(&self) -> Self::Header {
+        self.header
     }
 
     /// Create a new borrowed `Packet` with the given parameters.
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item {
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self {
 
         let header = PacketHeader {
             ts_sec,
@@ -154,6 +162,13 @@ impl<'a> SomePacket<'a> for Packet<'a> {
         Packet {
             header,
             data: Cow::Borrowed(data)
+        }
+    }
+
+    fn new_with_params(&self, header: Self::Header, data: Vec<u8>) -> Self {
+        Packet {
+            header,
+            data: Cow::Owned(data)
         }
     }
 

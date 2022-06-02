@@ -22,6 +22,8 @@ pub trait SomePacketHeader: Sized {
     fn write_to< W: Write, B: ByteOrder>(&self, writer: &mut W, ts_resolution: TsResolution) -> ResultParsing<()>;
     fn from_slice<B: ByteOrder>(slice: &[u8], ts_resolution: TsResolution) -> ResultParsing<(&[u8], Self)>;
     fn timestamp(&self) -> Duration;
+    fn set_orig_len(&mut self, orig_len: u32);
+    fn set_incl_len(&mut self, incl_len: u32);
     
 }
 
@@ -32,13 +34,14 @@ pub trait SomePacket<'a> {
     type Item;
     type Header;
 
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item ;
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self;
+    fn new_with_params(&self, header: Self::Header, data: Vec<u8>) -> Self;
     fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> Self::Item;
     fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Self::Item>;
     fn to_owned(& self) -> Self::Item;
     fn from_slice< B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)>;
     fn get_data(&self) -> &Cow<'a, [u8]>;
-    fn get_header(&self) -> &Self::Header;
+    fn get_header(&self) -> Self::Header;
 }
 
 
@@ -64,6 +67,15 @@ pub struct VppPacketHeader {
 
 
 impl SomePacketHeader for VppPacketHeader {
+
+    fn set_incl_len(&mut self, incl_len: u32) {
+        self.incl_len = incl_len;
+    }
+
+    fn set_orig_len(&mut self, orig_len: u32) {
+        self.orig_len = orig_len;
+    }
+
     /// Create a new `VppPacketHeader` with the given parameters.
    fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> VppPacketHeader {
 
@@ -147,6 +159,7 @@ impl SomePacketHeader for VppPacketHeader {
 
 }
 
+#[derive(Clone, Default, Debug)]
 pub struct VppPacket<'a> {
 
     /// Header of the packet
@@ -165,12 +178,12 @@ impl<'a> SomePacket<'a> for VppPacket<'a> {
         &self.data
     }
 
-    fn get_header(&self) -> &Self::Header {
-        &self.header
+    fn get_header(&self) -> Self::Header {
+        self.header
     }
 
     /// Create a new borrowed `VppPacket` with the given parameters.
-    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item {
+    fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self {
 
         let header = VppPacketHeader {
             ts_sec,
@@ -185,6 +198,13 @@ impl<'a> SomePacket<'a> for VppPacket<'a> {
             data: Cow::Borrowed(data)
         }
         
+    }
+
+    fn new_with_params(&self, header: VppPacketHeader, data: Vec<u8>) -> Self {
+        VppPacket {
+            header,
+            data: Cow::Owned(data)
+        }
     }
 
     /// Create a new owned `VppPacket` with the given parameters.
