@@ -10,29 +10,37 @@ use std::{
     borrow::Cow,
     io::Read,
     io::Write,
-    time::Duration
+    time::Duration, 
+    fmt::Debug
 };
 
-pub trait SomePacketHeader<H> {
+
+pub trait SomePacketHeader: Sized {
     
     fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> Self;
-    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<H>;
+    fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Self>;
     fn write_to< W: Write, B: ByteOrder>(&self, writer: &mut W, ts_resolution: TsResolution) -> ResultParsing<()>;
-    fn from_slice<B: ByteOrder>(slice: &[u8], ts_resolution: TsResolution) -> ResultParsing<(&[u8], H)>;
+    fn from_slice<B: ByteOrder>(slice: &[u8], ts_resolution: TsResolution) -> ResultParsing<(&[u8], Self)>;
     fn timestamp(&self) -> Duration;
     
 }
 
+// pub trait 
+
 pub trait SomePacket<'a> {
 
     type Item;
+    type Header;
 
     fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item ;
     fn new_owned(ts_sec: u32, ts_nsec: u32, data: Vec<u8>, orig_len: u32) -> Self::Item;
     fn from_reader<R: Read, B: ByteOrder>(reader: &mut R, ts_resolution: TsResolution) -> ResultParsing<Self::Item>;
     fn to_owned(& self) -> Self::Item;
     fn from_slice< B: ByteOrder>(slice: &'a[u8], ts_resolution: TsResolution) -> ResultParsing<(&'a[u8], Self::Item)>;
+    fn get_data(&self) -> &Cow<'a, [u8]>;
+    fn get_header(&self) -> &Self::Header;
 }
+
 
 /// Describes a Vpp pcap packet header.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
@@ -55,7 +63,7 @@ pub struct VppPacketHeader {
 }
 
 
-impl SomePacketHeader<VppPacketHeader> for VppPacketHeader {
+impl SomePacketHeader for VppPacketHeader {
     /// Create a new `VppPacketHeader` with the given parameters.
    fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> VppPacketHeader {
 
@@ -151,6 +159,15 @@ pub struct VppPacket<'a> {
 impl<'a> SomePacket<'a> for VppPacket<'a> {
 
     type Item = VppPacket<'a>;
+    type Header = VppPacketHeader;
+
+    fn get_data(&self) -> &Cow<'a, [u8]> {
+        &self.data
+    }
+
+    fn get_header(&self) -> &Self::Header {
+        &self.header
+    }
 
     /// Create a new borrowed `VppPacket` with the given parameters.
     fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item {

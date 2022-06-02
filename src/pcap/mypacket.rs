@@ -30,7 +30,7 @@ pub struct PacketHeader {
     pub orig_len: u32
 }
 
-impl SomePacketHeader<PacketHeader> for  PacketHeader {
+impl SomePacketHeader for  PacketHeader {
 
     /// Create a new `PacketHeader` with the given parameters.
     fn new(ts_sec: u32, ts_nsec: u32, incl_len:u32, orig_len:u32) -> PacketHeader {
@@ -131,6 +131,15 @@ pub struct Packet<'a> {
 impl<'a> SomePacket<'a> for Packet<'a> {
     
     type Item = Self;
+    type Header = PacketHeader;
+
+    fn get_data(&self) -> &Cow<'a, [u8]> {
+        &self.data
+    }
+
+    fn get_header(&self) -> &Self::Header {
+        &self.header
+    }
 
     /// Create a new borrowed `Packet` with the given parameters.
     fn new(ts_sec: u32, ts_nsec: u32, data: &'a [u8], orig_len: u32) -> Self::Item {
