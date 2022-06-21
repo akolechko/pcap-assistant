@@ -1,8 +1,8 @@
 mod myheader;
 mod mypacket;
+mod myparser;
 mod myreader;
 mod mywriter;
-mod myparser;
 mod vpp_packet;
 
 pub use myheader::*;

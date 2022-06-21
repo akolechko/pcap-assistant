@@ -1,18 +1,14 @@
-use byteorder::{ByteOrder, BigEndian, LittleEndian, NativeEndian};
+use byteorder::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
 
 use crate::{
-    Endianness,
     myerrors::*,
     pcap::myheader::PcapHeader,
     pcap::mypacket::{Packet, PacketHeader},
-    pcap::vpp_packet::*
+    pcap::vpp_packet::*,
+    Endianness,
 };
 
-use std::{
-    borrow::Cow,
-    io::Write
-};
-
+use std::{borrow::Cow, io::Write};
 
 /// This struct wraps another writer and uses it to write a Pcap formated stream.
 ///
@@ -42,17 +38,16 @@ use std::{
 #[derive(Debug)]
 pub struct PcapWriter<W: Write> {
     pub header: PcapHeader,
-    writer: W
+    writer: W,
 }
 
-pub trait PacketWriter<P>{
-    fn write(&mut self, ts_sec: u32, ts_nsec: u32, data: &[u8], orig_len: u32) -> ResultParsing<()>;
+pub trait PacketWriter<P> {
+    fn write(&mut self, ts_sec: u32, ts_nsec: u32, data: &[u8], orig_len: u32)
+        -> ResultParsing<()>;
     fn write_packet(&mut self, packet: P) -> ResultParsing<()>;
-   
 }
 
 impl<'a, W: Write> PacketWriter<Packet<'a>> for PcapWriter<W> {
-
     /// Writes some raw data, converting it to the pcap file format.
     ///
     /// # Examples
@@ -66,17 +61,21 @@ impl<'a, W: Write> PacketWriter<Packet<'a>> for PcapWriter<W> {
     ///
     /// pcap_writer.write(1, 0, &data, data.len() as u32).unwrap();
     /// ```
-    fn write(&mut self, ts_sec: u32, ts_nsec: u32, data: &[u8], orig_len: u32) -> ResultParsing<()> {
-
+    fn write(
+        &mut self,
+        ts_sec: u32,
+        ts_nsec: u32,
+        data: &[u8],
+        orig_len: u32,
+    ) -> ResultParsing<()> {
         let packet = Packet {
-
             header: PacketHeader::new(ts_sec, ts_nsec, data.len() as u32, orig_len),
-            data: Cow::Borrowed(data)
+            data: Cow::Borrowed(data),
         };
 
         Self::write_packet(self, packet)
     }
-    
+
     /// Writes a `Packet`.
     ///
     /// # Examples
@@ -96,13 +95,15 @@ impl<'a, W: Write> PacketWriter<Packet<'a>> for PcapWriter<W> {
     /// pcap_writer.write_packet(&packet).unwrap();
     /// ```
     fn write_packet(&mut self, packet: Packet) -> ResultParsing<()> {
-
         let ts_resolution = self.header.ts_resolution();
 
         match self.header.endianness() {
-
-            Endianness::Big => packet.header.write_to::<_, BigEndian>(&mut self.writer, ts_resolution)?,
-            Endianness::Little => packet.header.write_to::<_, LittleEndian>(&mut self.writer, ts_resolution)?,
+            Endianness::Big => packet
+                .header
+                .write_to::<_, BigEndian>(&mut self.writer, ts_resolution)?,
+            Endianness::Little => packet
+                .header
+                .write_to::<_, LittleEndian>(&mut self.writer, ts_resolution)?,
         }
 
         self.writer.write_all(&packet.data)?;
@@ -112,7 +113,6 @@ impl<'a, W: Write> PacketWriter<Packet<'a>> for PcapWriter<W> {
 }
 
 impl<'a, W: Write> PacketWriter<VppPacket<'a>> for PcapWriter<W> {
-
     /// Writes some raw data, converting it to the pcap file format.
     ///
     /// # Examples
@@ -126,25 +126,31 @@ impl<'a, W: Write> PacketWriter<VppPacket<'a>> for PcapWriter<W> {
     ///
     /// pcap_writer.write(1, 0, &data, data.len() as u32).unwrap();
     /// ```
-    fn write(&mut self, ts_sec: u32, ts_nsec: u32, data: &[u8], orig_len: u32) -> ResultParsing<()> {
-
+    fn write(
+        &mut self,
+        ts_sec: u32,
+        ts_nsec: u32,
+        data: &[u8],
+        orig_len: u32,
+    ) -> ResultParsing<()> {
         let packet = VppPacket {
-
             header: VppPacketHeader::new(ts_sec, ts_nsec, data.len() as u32, orig_len),
-            data: Cow::Borrowed(data)
+            data: Cow::Borrowed(data),
         };
 
         Self::write_packet(self, packet)
     }
-    
-    fn write_packet(&mut self, packet: VppPacket) -> ResultParsing<()> {
 
+    fn write_packet(&mut self, packet: VppPacket) -> ResultParsing<()> {
         let ts_resolution = self.header.ts_resolution();
 
         match self.header.endianness() {
-
-            Endianness::Big => packet.header.write_to::<_, BigEndian>(&mut self.writer, ts_resolution)?,
-            Endianness::Little => packet.header.write_to::<_, LittleEndian>(&mut self.writer, ts_resolution)?,
+            Endianness::Big => packet
+                .header
+                .write_to::<_, BigEndian>(&mut self.writer, ts_resolution)?,
+            Endianness::Little => packet
+                .header
+                .write_to::<_, LittleEndian>(&mut self.writer, ts_resolution)?,
         }
 
         self.writer.write_all(&packet.data)?;
@@ -154,7 +160,6 @@ impl<'a, W: Write> PacketWriter<VppPacket<'a>> for PcapWriter<W> {
 }
 
 impl<W: Write> PcapWriter<W> {
-
     /// Creates a new `PcapWriter` from an existing writer in the choosen endianess.
     /// Defaults to the native endianness of the CPU.
     ///
@@ -187,13 +192,12 @@ impl<W: Write> PcapWriter<W> {
     /// let mut pcap_writer = PcapWriter::new(file_out);
     /// ```
     pub fn new(writer: W) -> ResultParsing<PcapWriter<W>> {
-
         let tmp = NativeEndian::read_u16(&[0x42, 0x00]);
 
         let endianness = match tmp {
             0x4200 => Endianness::Big,
             0x0042 => Endianness::Little,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         let mut header = PcapHeader::default();
@@ -238,18 +242,12 @@ impl<W: Write> PcapWriter<W> {
     /// let mut pcap_writer = PcapWriter::with_header(header, file);
     /// ```
     pub fn with_header(header: PcapHeader, mut writer: W) -> ResultParsing<PcapWriter<W>> {
-
         match header.endianness() {
             Endianness::Big => header.write_to::<_, BigEndian>(&mut writer)?,
             Endianness::Little => header.write_to::<_, LittleEndian>(&mut writer)?,
         }
 
-        Ok(
-            PcapWriter {
-                header,
-                writer
-            }
-        )
+        Ok(PcapWriter { header, writer })
     }
 
     /// Consumes the `PcapWriter`, returning the wrapped writer.
@@ -268,5 +266,4 @@ impl<W: Write> PcapWriter<W> {
     pub fn get_mut(&mut self) -> &mut W {
         &mut self.writer
     }
-
 }
